@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Database Structure
+Цей застосунок використовує базу даних PostgreSQL з наступними таблицями, розміщеними в схемі train_schedule:
 
-## Getting Started
+## Таблиця: train_schedule.users
+Ця таблиця зберігає інформацію про зареєстрованих користувачів.
 
-First, run the development server:
+CREATE TABLE IF NOT EXISTS train_schedule.users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  password text NOT NULL,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_email_key UNIQUE (email)
+);
+id: Унікальний ідентифікатор користувача (UUID)
+email: Email користувача (унікальний)
+password: Захешований пароль
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Таблиця: train_schedule.trains
+Ця таблиця зберігає розклад потягів, який прив'язаний до користувача через зовнішній ключ user_id.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+CREATE TABLE IF NOT EXISTS train_schedule.trains (
+  id integer NOT NULL DEFAULT nextval('train_schedule.trains_id_seq'::regclass),
+  train_number varchar(20),
+  from_station varchar(100) NOT NULL,
+  to_station varchar(100) NOT NULL,
+  departure_time timestamp NOT NULL,
+  arrival_time timestamp NOT NULL,
+  user_id uuid NOT NULL,
+  CONSTRAINT trains_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_user FOREIGN KEY (user_id)
+    REFERENCES train_schedule.users (id)
+    ON DELETE CASCADE
+);
+id: Унікальний ідентифікатор потяга
+train_number: Номер потяга (необов’язкове поле)
+from_station: Станція відправлення
+to_station: Станція прибуття
+departure_time: Час відправлення
+arrival_time: Час прибуття
+user_id: Посилання на користувача, якому належить запис (зовнішній ключ)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Логіка авторизації та роботи з потягами
+У застосунку реалізована базова логіка реєстрації та входу користувача. Після успішної авторизації кожен користувач отримує JWT токен , за допомогою якого отримує доступ до функціоналу застосунку.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Кожен користувач може взаємодіяти лише зі своїми особистими записами про потяги: додавати, переглядати та видаляти лише ті потяги, які він створив. Зв’язок між користувачем і його потягами реалізовано через поле user_id у таблиці trains.
